@@ -1,46 +1,32 @@
 import runpod
-import os
-from typing import Dict, Any
-import json
+import time  
 
-def load_dataset(job: Dict[str, Any]) -> Dict[str, Any]:
+def handler(event):
     """
-    Handler function for loading datasets.
+    This function processes incoming requests to your Serverless endpoint.
     
     Args:
-        job (Dict[str, Any]): The job input containing dataset information
+        event (dict): Contains the input data and request metadata
         
     Returns:
-        Dict[str, Any]: Response containing loaded dataset information
+        Any: The result to be returned to the client
     """
-    try:
-        # Get input parameters
-        job_input = job["input"]
-        
-        # Extract dataset parameters
-        dataset_name = job_input.get("dataset_name")
-        dataset_path = job_input.get("dataset_path")
-        
-        if not dataset_name or not dataset_path:
-            return {
-                "error": "Missing required parameters: dataset_name and dataset_path are required"
-            }
-        
-        # Here you would implement your dataset loading logic
-        # For example:
-        # dataset = load_dataset_from_path(dataset_path)
-        
-        return {
-            "status": "success",
-            "dataset_name": dataset_name,
-            "dataset_path": dataset_path,
-            "message": f"Dataset {dataset_name} loaded successfully"
-        }
-        
-    except Exception as e:
-        return {
-            "error": str(e)
-        }
+    
+    # Extract input data
+    print(f"Worker Start")
+    input = event['input']
+    
+    prompt = input.get('prompt')  
+    seconds = input.get('seconds', 0)  
 
-# Start the RunPod serverless handler
-runpod.serverless.start({"handler": load_dataset}) 
+    print(f"Received prompt: {prompt}")
+    print(f"Sleeping for {seconds} seconds...")
+    
+    # You can replace this sleep call with your Python function to generate images, text, or run any machine learning workload
+    time.sleep(seconds)  
+    
+    return prompt 
+
+# Start the Serverless function when the script is run
+if __name__ == '__main__':
+    runpod.serverless.start({'handler': handler })

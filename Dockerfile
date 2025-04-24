@@ -39,4 +39,4 @@ RUN pip install accelerate>=0.26.0
 RUN pip install --no-cache-dir runpod
 COPY rp_handler.py /workspace/rp_handler.py
 
-CMD ["python","-u","rp_handler.py"]
+CMD ["python","-u","/workspace/rp_handler.py"]
