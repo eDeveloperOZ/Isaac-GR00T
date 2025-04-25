@@ -99,7 +99,7 @@ class Config:
     dataloader_num_workers: int = 8
     """Number of workers for data loading."""
 
-    report_to: str = "wandb"
+    report_to: str = "none"
     """Where to report training metrics (e.g., 'wandb', 'tensorboard')."""
 
     # Data loading parameters
