@@ -2,7 +2,8 @@ FROM nvidia/cuda:11.8.0-base-ubuntu20.04
 WORKDIR /app
 COPY . /app
 RUN apt-get update && apt-get install -y python3-pip wget
-RUN pip3 install torch==2.2.2+cu118 --index-url https://download.pytorch.org/whl/cu118 numpy pillow websockets lerobot gr00t
+RUN pip3 install --no-cache-dir torch==2.2.2+cu118 torchvision==0.17.2+cu118 torchaudio==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118 && \
+    pip3 install --no-cache-dir numpy pillow websockets lerobot gr00t
 RUN mkdir -p /app/models && pip install -U huggingface-cli && \
     huggingface-cli download phospho-app/so100_strawberry_grape-915h3ndhhf --local-dir /app/models
 EXPOSE 8765
