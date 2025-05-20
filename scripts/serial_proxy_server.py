@@ -518,7 +518,24 @@ def read_from_virtual_port(port_id):
                         if data:
                             logger.debug(f"READ FROM {port_id}: {len(data)} bytes")
                             log_binary_data(data, f"{port_id} -> CLIENT")
-                            
+
+                            # Try to parse Present Position packet
+                            if len(data) >= 8 and data[0] == 0xFF and data[1] == 0xFF:
+                                servo_id = data[2]
+                                length = data[3]
+                                cmd = data[4]
+
+                                if cmd == 0x04 and length >= 5:
+                                    param_addr = data[5]
+                                    if param_addr == 0x38 and len(data) >= 8:
+                                        position = data[6] + (data[7] << 8)
+                                        logger.info(f"[ID:{servo_id:03d}] Present Position: {position}")
+                                        socketio.emit('servo_position', {
+                                            'port_id': port_id,
+                                            'servo_id': servo_id,
+                                            'position': position
+                                        })
+
                             # Send data to clients with port information in a thread-safe way
                             def emit_serial_data():
                                 try:
@@ -526,7 +543,7 @@ def read_from_virtual_port(port_id):
                                     logger.debug(f"SENT TO CLIENTS FROM {port_id}: {len(data)} bytes")
                                 except Exception as e:
                                     logger.error(f"Error sending serial data: {str(e)}")
-                            
+
                             threading.Thread(target=emit_serial_data, daemon=True).start()
                     except (OSError, BlockingIOError) as e:
                         # Check if it's a serious error or just "no data available"
@@ -726,6 +743,14 @@ def handle_connect():
     
     # Send initial status in a separate thread
     threading.Thread(target=send_initial_status, daemon=True).start()
+    
+    # Initialize Feetech servo interaction if available
+    try:
+        from Feetech_Servo_SDK.scservo_sdk import PortHandler, PacketHandler, COMM_SUCCESS
+        logger.info("Feetech Servo SDK imported successfully")
+        # Additional initialization can be added here if needed
+    except ImportError as e:
+        logger.warning(f"Feetech Servo SDK not available: {str(e)}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -1192,6 +1217,93 @@ if __name__ == '__main__':
     # Start the health monitor
     start_health_monitor()
     
+    # Feetech Servo SDK integration
+    try:
+        import sys
+        sys.path.append('/workspace/Feetech-Servo-SDK')
+        from scservo_sdk import PortHandler, PacketHandler, COMM_SUCCESS
+        logger.info("Feetech Servo SDK initialized")
+        
+        # Initialize port handlers for virtual ports
+        port_handler1 = PortHandler(virtual_ports['port1']['path'] if virtual_ports['port1']['is_open'] else None)
+        port_handler2 = PortHandler(virtual_ports['port2']['path'] if virtual_ports['port2']['is_open'] else None)
+        packet_handler = PacketHandler(0)  # Using protocol_end=0 as in ping.py
+        
+        # Debug SDK interaction
+        logger.info("Attempting to open ports for servo communication")
+        if port_handler1 and not port_handler1.openPort():
+            logger.error("Failed to open port 1 for servo communication")
+        else:
+            logger.info("Port 1 opened successfully")
+            if not port_handler1.setBaudRate(DEFAULT_BAUD_RATE):
+                logger.error("Failed to set baud rate for port 1")
+            else:
+                logger.info("Baud rate set for port 1")
+                
+        if port_handler2 and not port_handler2.openPort():
+            logger.error("Failed to open port 2 for servo communication")
+        else:
+            logger.info("Port 2 opened successfully")
+            if not port_handler2.setBaudRate(DEFAULT_BAUD_RATE):
+                logger.error("Failed to set baud rate for port 2")
+            else:
+                logger.info("Baud rate set for port 2")
+        
+        # Function to ping servos and read position
+        def ping_and_read_position(port_handler, port_id):
+            if not port_handler:
+                logger.error(f"No port handler for {port_id}")
+                return
+            
+            if not port_handler.is_open:
+                if not port_handler.openPort():
+                    logger.error(f"Failed to open port for {port_id}")
+                    return
+                
+                if not port_handler.setBaudRate(DEFAULT_BAUD_RATE):
+                    logger.error(f"Failed to set baud rate for {port_id}")
+                    return
+            
+            for test_id in range(1, 13):
+                logger.info(f"Testing ID {test_id} on {port_id}")
+                model_number, result, error = packet_handler.ping(port_handler, test_id)
+                if result != COMM_SUCCESS:
+                    logger.error(f"[ID:{test_id:03d}] Ping failed on {port_id}: {packet_handler.getTxRxResult(result)}")
+                    continue
+                elif error != 0:
+                    logger.error(f"[ID:{test_id:03d}] Ping error on {port_id}: {packet_handler.getRxPacketError(error)}")
+                    continue
+                else:
+                    logger.info(f"[ID:{test_id:03d}] Ping succeeded on {port_id}. Model number: {model_number}")
+                    
+                    PRESENT_POSITION = 0x38
+                    LENGTH = 2
+                    position, result, error = packet_handler.read2ByteTxRx(port_handler, test_id, PRESENT_POSITION)
+                    if result != COMM_SUCCESS:
+                        logger.error(f"[ID:{test_id:03d}] Read failed on {port_id}: {packet_handler.getTxRxResult(result)}")
+                    elif error != 0:
+                        logger.error(f"[ID:{test_id:03d}] Read error on {port_id}: {packet_handler.getRxPacketError(error)}")
+                    else:
+                        logger.info(f"[ID:{test_id:03d}] Present Position on {port_id}: {position}")
+                        socketio.emit('servo_position', {
+                            'port_id': port_id,
+                            'servo_id': test_id,
+                            'position': position
+                        })
+        
+        # Start a thread to periodically check servo positions
+        def check_servo_positions():
+            while True:
+                if virtual_ports['port1']['is_open']:
+                    ping_and_read_position(port_handler1, 'port1')
+                if virtual_ports['port2']['is_open']:
+                    ping_and_read_position(port_handler2, 'port2')
+                time.sleep(5)  # Check every 5 seconds
+        
+        threading.Thread(target=check_servo_positions, daemon=True).start()
+    except ImportError as e:
+        logger.error(f"Failed to initialize Feetech Servo SDK: {str(e)}")
+    
     # Start the Flask app
     host = os.environ.get('SERIAL_PROXY_HOST', '0.0.0.0')
     port = int(os.environ.get('SERIAL_PROXY_PORT', 5000))
@@ -1208,4 +1320,4 @@ if __name__ == '__main__':
             socketio.run(app, host=host, port=port, debug=DEBUG_MODE)
     except Exception as e:
         logger.error(f"Error starting server: {str(e)}")
-        sys.exit(1) 
+        sys.exit(1)

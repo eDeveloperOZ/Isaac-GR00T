@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SO100 Robot Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        video { width: 640px; height: 480px; margin-top: 20px; }
+        button, input { margin: 10px; padding: 5px 10px; }
+    </style>
+</head>
+<body>
+    <h1>SO100 Robot Control</h1>
+    <input type="text" id="runpod-url" placeholder="RunPod WebSocket URL (e.g., wss://your-runpod:8765)">
+    <button onclick="connectWebSocket()">Connect to RunPod</button><br>
+    <button onclick="selectPort()">Select Motor Port</button>
+    <button onclick="startInference()">Start Inference</button>
+    <video id="webcam" autoplay></video>
+
+    <script>
+        let ws;
+        let serialPort;
+        let writer;
+
+        async function connectWebSocket() {
+            const url = document.getElementById('runpod-url').value;
+            ws = new WebSocket(url);
+            ws.onopen = () => console.log("Connected to RunPod!");
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                if (data.write_commands && data.read_commands && writer) {
+                    const reader = serialPort.readable.getReader();
+
+                    // Send write commands
+                    for (const cmd of data.write_commands) {
+                        await writer.write(new Uint8Array(cmd));
+                    }
+
+                    // Send read commands and collect responses
+                    const responses = [];
+                    for (const read_cmd of data.read_commands) {
+                        await writer.write(new Uint8Array(read_cmd.command));
+                        const { value } = await reader.read();
+                        if (value) {
+                            responses.push(Array.from(value));
+                        }
+                    }
+
+                    reader.releaseLock();
+
+                    // Send next frame and responses
+                    const frame = captureFrame(video);
+                    ws.send(JSON.stringify({ image: frame, responses: responses }));
+                }
+            };
+            ws.onerror = (err) => console.error("WebSocket error:", err);
+        }
+
+        async function selectPort() {
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 1000000 });
+                writer = serialPort.writable.getWriter();
+                console.log("Motor port selected and opened!");
+            } catch (err) {
+                console.error("Serial port error:", err);
+            }
+        }
+
+        async function startInference() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("Please connect to RunPod first!");
+                return;
+            }
+            if (!serialPort || !writer) {
+                alert("Please select the motor port first!");
+                return;
+            }
+
+            const video = document.getElementById('webcam');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+
+            // Send initial message to start the loop
+            const frame = captureFrame(video);
+            ws.send(JSON.stringify({ image: frame, state: null }));
+        }
+
+        function captureFrame(video) {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            return canvas.toDataURL('image/jpeg').split(',')[1];
+        }
+    </script>
+</body>
+</html>
