@@ -1,0 +1,9 @@
+FROM nvidia/cuda:11.8.0-base-ubuntu20.04
+WORKDIR /app
+COPY . /app
+RUN apt-get update && apt-get install -y python3-pip wget
+RUN pip3 install torch==2.2.2+cu118 --index-url https://download.pytorch.org/whl/cu118 numpy pillow websockets lerobot gr00t
+RUN mkdir -p /app/models && pip install -U huggingface-cli && \
+    huggingface-cli download phospho-app/so100_strawberry_grape-915h3ndhhf --local-dir /app/models
+EXPOSE 8765
+CMD ["python3","-u","getting_started/examples/eval_gr00t_so100.py"]

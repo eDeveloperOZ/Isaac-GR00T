@@ -21,6 +21,7 @@
         let ws;
         let serialPort;
         let writer;
+        const videoElem = document.getElementById('webcam');
 
         async function connectWebSocket() {
             const url = document.getElementById('runpod-url').value;
@@ -30,26 +31,32 @@
                 const data = JSON.parse(event.data);
                 if (data.write_commands && data.read_commands && writer) {
                     const reader = serialPort.readable.getReader();
+                    console.log("reader", reader);
 
                     // Send write commands
                     for (const cmd of data.write_commands) {
                         await writer.write(new Uint8Array(cmd));
+                        console.log("wrote command", cmd);
                     }
 
                     // Send read commands and collect responses
                     const responses = [];
                     for (const read_cmd of data.read_commands) {
                         await writer.write(new Uint8Array(read_cmd.command));
-                        const { value } = await reader.read();
-                        if (value) {
-                            responses.push(Array.from(value));
+                        console.log("wrote read command", read_cmd.command);
+                        const expected = read_cmd.length;
+                        let buf = [];
+                        while (buf.length < expected) {
+                            const { value } = await reader.read();
+                            if (value) buf.push(...value);
                         }
+                        responses.push(buf.slice(0, expected));
                     }
 
                     reader.releaseLock();
 
                     // Send next frame and responses
-                    const frame = captureFrame(video);
+                    const frame = captureFrame(videoElem);
                     ws.send(JSON.stringify({ image: frame, responses: responses }));
                 }
             };
@@ -77,13 +84,12 @@
                 return;
             }
 
-            const video = document.getElementById('webcam');
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
+            videoElem.srcObject = stream;
 
             // Send initial message to start the loop
-            const frame = captureFrame(video);
-            ws.send(JSON.stringify({ image: frame, state: null }));
+            const frame = captureFrame(videoElem);
+            ws.send(JSON.stringify({ image: frame, responses: [] }));
         }
 
         function captureFrame(video) {

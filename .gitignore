@@ -122,5 +122,7 @@ playground/
 demo_data/gr00t-gr1-apple-to-shelf/
 tmp/
 output/
-./roo
+.roo
 ./DS_Store
+/lerobot
+/Feetech-Servo-SDK
