@@ -30,6 +30,7 @@
         async function connectWebSocket() {
             const url = document.getElementById('runpod-url').value;
             ws = new WebSocket(url);
+            console.log("connecting to", url);
             ws.onopen = () => console.log("Connected to RunPod!");
             ws.onmessage = async (event) => {
                 const data = JSON.parse(event.data);

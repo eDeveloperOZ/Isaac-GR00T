@@ -21,16 +21,21 @@ RUN pip3 install --no-cache-dir \
     torchaudio==2.2.2+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 
-# Install project dependencies
+# Install Hugging Face dependencies with specific versions
+RUN pip3 install --no-cache-dir \
+    huggingface-hub==0.16.4 \
+    diffusers==0.21.4 \
+    transformers==4.45.2 \
+    accelerate==1.2.1 \
+    peft==0.14.0
+
+# Install other project dependencies
 RUN pip3 install --no-cache-dir \
     numpy \
     pillow \
     websockets \
     lerobot \
-    "networkx<3.2" \
-    transformers==4.45.2 \
-    accelerate==1.2.1 \
-    peft==0.14.0
+    "networkx<3.2"
 
 # Install the project
 RUN pip3 install .
