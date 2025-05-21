@@ -1,10 +1,8 @@
 FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
 WORKDIR /app
 COPY ../ /app
-RUN echo "ls -R && ${pwd}" && ls -R
-RUN echo "ls -R && ${../pwd}" && ls -R ..
-COPY ../pyproject.toml .
-COPY gr00t /app/gr00t
+RUN echo "ls -R && pwd" && pwd && ls -R
+COPY pyproject.toml .
 RUN apt-get update && apt-get install -y python3-pip wget git-lfs && ls -R && pwd
 RUN pip3 install -e .
 RUN pip3 install --no-cache-dir torch==2.2.2+cu118 torchvision==0.17.2+cu118 torchaudio==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118 && \
