@@ -18,6 +18,7 @@
     <button onclick="connectWebSocket()">Connect WS</button><br>
     <button onclick="selectPort()">Select Motor Port</button>
     <button onclick="startInference()">Start Inference</button>
+    <button onclick="shutdownWorker()">Shutdown</button>
     <video id="webcam" autoplay></video>
 
     <script>
@@ -101,6 +102,39 @@
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             return canvas.toDataURL('image/jpeg').split(',')[1];
+        }
+
+        function shutdownWorker(){
+            if(ws && ws.readyState===WebSocket.OPEN){
+                ws.send("shutdown");
+                ws.close();
+                console.log("Shutdown signal sent");
+            }
+        }
+
+        async function wakeWorker(){
+            const key=document.getElementById('api-key').value.trim();
+            const wid=document.getElementById('worker-id').value.trim();
+            if(!key||!wid){alert('Fill API key and Worker ID');return;}
+            const url=`https://api.runpod.ai/v2/${wid}/run`;
+            try{
+                const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({input:{wake:true}})});
+                const run=await res.json();
+                if(!run.id){console.error('No job id');return;}
+                // poll status for ip/port
+                const statusUrl=`https://api.runpod.ai/v2/${wid}/status/${run.id}`;
+                const poll=setInterval(async()=>{
+                    const st=await fetch(statusUrl,{headers:{'Authorization':`Bearer ${key}`}});
+                    if(!st.ok) return;
+                    const data=await st.json();
+                    if(data.output && data.output.ip){
+                        clearInterval(poll);
+                        const wsUrl=`ws://${data.output.ip}:${data.output.port||8765}`;
+                        document.getElementById('runpod-url').value=wsUrl;
+                        console.log('Worker live at',wsUrl);
+                    }
+                },2000);
+            }catch(e){console.error(e);}        
         }
     </script>
 </body>
