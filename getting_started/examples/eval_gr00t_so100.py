@@ -50,65 +50,80 @@ def feetech_write_position_command(servo_id: int, pos_val: int):
 async def handle_client(websocket, path):
     """Handle incoming WebSocket connections and process client messages."""
     print("Client connected!")
-    async for message in websocket:
-        try:
-            # Parse the incoming JSON message from the client
-            data = json.loads(message)
-            img_base64 = data["image"]  # Base64-encoded video frame
-            responses = data.get("responses", None)  # Robot state responses (optional)
+    try:
+        async for message in websocket:
+            # Check for shutdown message
+            if message == "shutdown":
+                print("Received shutdown signal")
+                await websocket.close()
+                return
 
-            # Decode the base64 image into a numpy array
-            img_data = base64.b64decode(img_base64)
-            img = Image.open(BytesIO(img_data))
-            img_array = np.array(img)
+            try:
+                # Parse the incoming JSON message from the client
+                data = json.loads(message)
+                img_base64 = data["image"]  # Base64-encoded video frame
+                responses = data.get("responses", None)  # Robot state responses (optional)
 
-            # Process robot state from responses (if provided)
-            if responses and len(responses) > 0:
-                # Assuming responses are joint positions; adjust based on FeeTech format
-                state = np.array(responses[0][:6], dtype=np.float64)  # 5 joints + gripper
-            else:
-                state = np.zeros(6, dtype=np.float64)  # Default state if no response
+                # Decode the base64 image into a numpy array
+                img_data = base64.b64decode(img_base64)
+                img = Image.open(BytesIO(img_data))
+                img_array = np.array(img)
 
-            # Prepare observation dictionary for GR00T model
-            obs_dict = {
-                "video.webcam": img_array[np.newaxis, :, :, :],  # Shape: (1, H, W, C)
-                "state.single_arm": state[:5][np.newaxis, :],    # Shape: (1, 5)
-                "state.gripper": state[5:6][np.newaxis, :],      # Shape: (1, 1)
-                "annotation.human.task_description": ["Pick up the fruits and place them on the plate."],
-            }
+                # Process robot state from responses (if provided)
+                if responses and len(responses) > 0:
+                    # Assuming responses are joint positions; adjust based on FeeTech format
+                    state = np.array(responses[0][:6], dtype=np.float64)  # 5 joints + gripper
+                else:
+                    state = np.zeros(6, dtype=np.float64)  # Default state if no response
 
-            # Compute action using the GR00T model
-            action = model.get_action(obs_dict)
+                # Prepare observation dictionary for GR00T model
+                obs_dict = {
+                    "video.webcam": img_array[np.newaxis, :, :, :],  # Shape: (1, H, W, C)
+                    "state.single_arm": state[:5][np.newaxis, :],    # Shape: (1, 5)
+                    "state.gripper": state[5:6][np.newaxis, :],      # Shape: (1, 1)
+                    "annotation.human.task_description": ["Pick up the fruits and place them on the plate."],
+                }
 
-            # Build FeeTech packets from action (5 joints + gripper)
-            sa = action["action.single_arm"][0]  # (5,)
-            grip = action.get("action.gripper", np.array([0.0]))[0]
-            joint_vals = np.concatenate([sa, [grip]])
+                # Compute action using the GR00T model
+                action = model.get_action(obs_dict)
 
-            # Convert degrees to 0-1000 range (rough, MVP)
-            pos_units = (joint_vals / 300 * 1000).astype(int)
-            serialized_commands = [feetech_write_position_command(i + 1, val) for i, val in enumerate(pos_units)]
+                # Build FeeTech packets from action (5 joints + gripper)
+                sa = action["action.single_arm"][0]  # (5,)
+                grip = action.get("action.gripper", np.array([0.0]))[0]
+                joint_vals = np.concatenate([sa, [grip]])
 
-            # Generate read commands to query robot state (for all 6 servos)
-            def feetech_read_position_command(servo_id):
-                packet = [0xFF, 0xFF, servo_id, 0x04, 0x02, 0x38, 0x02]
-                checksum = (~sum(packet[2:])) & 0xFF
-                packet.append(checksum)
-                return packet
+                # Convert degrees to 0-1000 range (rough, MVP)
+                pos_units = (joint_vals / 300 * 1000).astype(int)
+                serialized_commands = [feetech_write_position_command(i + 1, val) for i, val in enumerate(pos_units)]
 
-            read_commands = [
-                {"command": feetech_read_position_command(id), "length": 8}
-                for id in range(1, 7)  # Servo IDs 1-6
-            ]
+                # Generate read commands to query robot state (for all 6 servos)
+                def feetech_read_position_command(servo_id):
+                    packet = [0xFF, 0xFF, servo_id, 0x04, 0x02, 0x38, 0x02]
+                    checksum = (~sum(packet[2:])) & 0xFF
+                    packet.append(checksum)
+                    return packet
 
-            # Prepare response for the client
-            response = {"write_commands": serialized_commands, "read_commands": read_commands}
+                read_commands = [
+                    {"command": feetech_read_position_command(id), "length": 8}
+                    for id in range(1, 7)  # Servo IDs 1-6
+                ]
 
-            # Send the response back to the client
-            await websocket.send(json.dumps(response))
+                # Prepare response for the client
+                response = {"write_commands": serialized_commands, "read_commands": read_commands}
 
-        except Exception as e:
-            print(f"Error processing client message: {e}")
+                # Send the response back to the client
+                await websocket.send(json.dumps(response))
+
+            except Exception as e:
+                print(f"Error processing client message: {e}")
+                # Don't close connection on processing error, wait for next message
+                continue
+    except websockets.exceptions.ConnectionClosed:
+        print("Client disconnected")
+    except Exception as e:
+        print(f"Unexpected error in handle_client: {e}")
+    finally:
+        print("Client handler finished")
 
 async def main():
     """Start the WebSocket server."""

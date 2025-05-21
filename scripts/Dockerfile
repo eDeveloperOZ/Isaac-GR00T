@@ -35,7 +35,8 @@ RUN pip3 install --no-cache-dir \
     pillow \
     websockets \
     lerobot \
-    "networkx<3.2"
+    "networkx<3.2" \
+    runpod
 
 # Install the project
 RUN pip3 install .
@@ -45,4 +46,6 @@ RUN git lfs install && \
     git clone --depth 1 https://huggingface.co/phospho-app/so100_strawberry_grape-915h3ndhhf /app/models
 
 EXPOSE 8765
-CMD ["python3","-u","getting_started/examples/eval_gr00t_so100.py"]
+
+# Run the RunPod handler instead of the eval script directly
+CMD ["python3", "-u", "rp_handler.py"]
