@@ -32,13 +32,13 @@ RUN pip3 install --no-cache-dir \
 # Install the project (this will install dependencies from pyproject.toml)
 RUN pip3 install .
 
-# OVERRIDE with versions that have BOTH cached_download AND errors module
+# OVERRIDE with versions that are compatible with each other
 RUN pip3 install --no-cache-dir --force-reinstall \
     huggingface-hub==0.19.4 \
-    diffusers==0.25.1 \
-    transformers==4.35.2 \
-    accelerate==0.24.1 \
-    peft==0.6.2
+    diffusers==0.19.3 \
+    transformers==4.33.2 \
+    accelerate==0.21.0 \
+    peft==0.4.0
 
 # Download models
 RUN git lfs install && \
