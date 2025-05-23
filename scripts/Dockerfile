@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y \
 
 # Copy project files
 COPY ../ /app
-COPY gr00t /app/gr00t
 COPY pyproject.toml .
 
 # Install PyTorch first
