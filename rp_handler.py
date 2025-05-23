@@ -4,6 +4,31 @@ import websockets
 import runpod
 import threading
 import time
+
+# -----------------------------------------------------------------------------
+# Compatibility patch: ensure huggingface_hub.errors exists (older hub versions)
+# -----------------------------------------------------------------------------
+import importlib, types
+try:
+    from huggingface_hub import errors as _hf_errors  # type: ignore
+except ImportError:
+    hf_hub = importlib.import_module("huggingface_hub")
+    errors_mod = types.ModuleType("errors")
+
+    class HFValidationError(Exception):
+        pass
+
+    class RepositoryNotFoundError(Exception):
+        pass
+
+    errors_mod.HFValidationError = HFValidationError
+    errors_mod.RepositoryNotFoundError = RepositoryNotFoundError
+    hf_hub.errors = errors_mod  # type: ignore
+    # Also expose directly for "from huggingface_hub import HFValidationError"
+    hf_hub.HFValidationError = HFValidationError  # type: ignore
+    hf_hub.RepositoryNotFoundError = RepositoryNotFoundError  # type: ignore
+
+# -----------------------------------------------------------------------------
 from getting_started.examples.eval_gr00t_so100 import handle_client
 
 # Global variable to track server status
