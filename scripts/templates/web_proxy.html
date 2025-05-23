@@ -27,6 +27,7 @@
         let serialPort;
         let writer;
         let currentJobId;
+        let pollInterval;
         const videoElem = document.getElementById('webcam');
 
         async function connectWebSocket() {
@@ -120,26 +121,25 @@
             const key=document.getElementById('api-key').value.trim();
             const wid=document.getElementById('worker-id').value.trim();
             if(!key||!wid){alert('Fill API key and Worker ID');return;}
+            
+            // Clear any existing poll
+            if(pollInterval) clearInterval(pollInterval);
+            
             const url=`https://api.runpod.ai/v2/${wid}/run`;
             try{
                 const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({input:{wake:true}})});
-                console.log("res", res);
                 const run=await res.json();
                 if(!run.id){console.error('No job id');return;}
                 currentJobId = run.id;
                 document.getElementById('cancelBtn').disabled = false;
-                console.log("run", run);
-                // poll status for ip/port
+                
                 const statusUrl=`https://api.runpod.ai/v2/${wid}/status/${run.id}`;
-                console.log("statusUrl", statusUrl);
-                const poll=setInterval(async()=>{
+                pollInterval=setInterval(async()=>{
                     const st=await fetch(statusUrl,{headers:{'Authorization':`Bearer ${key}`}});
-                    console.log("st", st);
                     if(!st.ok) return;
                     const data=await st.json();
-                    console.log("data", data);
                     if(data.output && data.output.ip){
-                        clearInterval(poll);
+                        clearInterval(pollInterval);
                         const wsUrl=`ws://${data.output.ip}:${data.output.port||8765}`;
                         document.getElementById('runpod-url').value=wsUrl;
                         console.log('Worker live at',wsUrl);
@@ -150,18 +150,19 @@
 
         async function cancelJob() {
             if (!currentJobId) return;
+            
+            // Stop polling immediately
+            if(pollInterval) clearInterval(pollInterval);
+            
             const key = document.getElementById('api-key').value.trim();
             const wid = document.getElementById('worker-id').value.trim();
             const url = `https://api.runpod.ai/v2/${wid}/cancel/${currentJobId}`;
             try {
-                // First, send shutdown signal if WebSocket is connected
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    console.log("sending shutdown signal");
                     ws.send("shutdown");
                     ws.close();
                 }
 
-                // Then cancel the job
                 const res = await fetch(url, {
                     method: 'POST',
                     headers: {

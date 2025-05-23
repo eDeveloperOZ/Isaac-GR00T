@@ -34,11 +34,11 @@ RUN pip3 install .
 
 # OVERRIDE with versions that have BOTH cached_download AND errors module
 RUN pip3 install --no-cache-dir --force-reinstall \
-    huggingface-hub==0.16.4 \
-    diffusers==0.20.2 \
-    transformers==4.30.2 \
-    accelerate==0.20.3 \
-    peft==0.4.0
+    huggingface-hub==0.19.4 \
+    diffusers==0.25.1 \
+    transformers==4.35.2 \
+    accelerate==0.24.1 \
+    peft==0.6.2
 
 # Download models
 RUN git lfs install && \
