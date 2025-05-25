@@ -13,33 +13,39 @@ RUN apt-get update && apt-get install -y \
 COPY ../ /app
 COPY pyproject.toml .
 
-# Install PyTorch first (compatible with CUDA 11.8)
+# Install PyTorch first
 RUN pip3 install --no-cache-dir \
-    torch==2.5.1+cu118 \
-    torchvision==0.20.1+cu118 \
-    torchaudio==2.5.1+cu118 \
+    torch==2.2.2+cu118 \
+    torchvision==0.17.2+cu118 \
+    torchaudio==2.2.2+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 
-# Install other project dependencies first
+# Install ONLY the specific versions we need (no project install)
 RUN pip3 install --no-cache-dir \
+    huggingface-hub==0.23.5 \
+    diffusers==0.30.2 \
+    transformers==4.42.4 \
+    accelerate==0.31.0 \
+    peft==0.11.1 \
     numpy \
     pillow \
     websockets \
     lerobot \
     "networkx<3.2" \
     runpod \
-    huggingface-hub
+    albumentations==1.4.18 \
+    av==12.3.0 \
+    einops==0.8.1 \
+    h5py==3.12.1 \
+    kornia==0.7.4 \
+    matplotlib==3.10.0 \
+    opencv-python==4.8.0.74 \
+    omegaconf==2.3.0 \
+    timm==1.0.14 \
+    protobuf==3.20.3
 
-# Install the project (this will install dependencies from pyproject.toml)
-RUN pip3 install .
-
-# Install compatible versions of huggingface packages
-RUN pip3 install --no-cache-dir --force-reinstall \
-    huggingface-hub==0.23.0 \
-    diffusers==0.30.2 \
-    transformers==4.45.2 \
-    accelerate==1.2.1 \
-    peft==0.14.0
+# Set Python path to include the app directory
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Download models
 RUN git lfs install && \
