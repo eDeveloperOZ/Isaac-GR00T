@@ -19,7 +19,7 @@ def start_websocket_server():
             await websocket_server.wait_closed()
         except Exception as e:
             print(f"WebSocket server error: {e}")
-    
+
     # Run the async server in a new event loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -29,7 +29,7 @@ def handler(job):
     try:
         # Get the IP and port from RunPod environment
         ip = os.environ.get("RUNPOD_HTTP_IP")
-        port = os.environ.get("RUNPOD_TCP_PORT_8765", 8765)
+    port = os.environ.get("RUNPOD_TCP_PORT_8765", 8765)
         
         if not ip:
             return {

@@ -9,9 +9,11 @@ RUN apt-get update && apt-get install -y \
     git-lfs \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
-COPY ../ /app
-COPY pyproject.toml .
+# Copy all project files from parent directory
+COPY .. /app/
+# Ensure rp_handler.py is in the right place
+COPY ../rp_handler.py /app/rp_handler.py
+COPY ../getting_started /app/getting_started/
 
 # Install PyTorch first
 RUN pip3 install --no-cache-dir \
@@ -59,5 +61,10 @@ RUN git lfs install && \
 
 EXPOSE 8765
 
-# Run the RunPod handler instead of the eval script directly
-CMD ["python3", "-u", "rp_handler.py"]
+# Verify files exist
+RUN ls -la /app/ && \
+    echo "Checking for rp_handler.py:" && \
+    ls -la /app/rp_handler.py
+
+# Run the RunPod handler
+CMD ["python3", "-u", "/app/rp_handler.py"]
