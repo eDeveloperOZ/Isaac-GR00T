@@ -38,14 +38,10 @@ RUN pip3 install --no-cache-dir \
     "networkx<3.2" \
     runpod
 
-# Install lerobot (if needed - comment out if not using)
-RUN pip3 install --no-cache-dir lerobot
-
-# Install remaining dependencies
+# Install remaining dependencies (excluding einops which lerobot will install)
 RUN pip3 install --no-cache-dir \
     albumentations==1.4.18 \
     av==12.3.0 \
-    einops==0.7.0 \
     h5py==3.12.1 \
     kornia==0.7.4 \
     matplotlib==3.10.0 \
@@ -53,6 +49,9 @@ RUN pip3 install --no-cache-dir \
     omegaconf==2.3.0 \
     timm==1.0.14 \
     protobuf==3.20.3
+
+# Install lerobot last (will install correct einops version)
+RUN pip3 install --no-cache-dir lerobot
 
 # Set Python path to include the app directory
 ENV PYTHONPATH=/app:$PYTHONPATH
