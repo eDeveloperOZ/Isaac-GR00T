@@ -22,28 +22,30 @@ RUN pip3 install --no-cache-dir \
     torchaudio==2.2.2+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 
-# Install VERIFIED WORKING Hugging Face packages (tested in local env)
+# Install VERIFIED WORKING Hugging Face packages (compatible with lerobot)
 RUN pip3 install --no-cache-dir \
-    huggingface-hub==0.32.2 \
-    diffusers==0.30.2 \
-    transformers==4.52.3 \
-    accelerate==1.7.0 \
-    peft==0.15.2
+    numpy==1.26.4 \
+    huggingface-hub==0.25.2 \
+    diffusers==0.26.3 \
+    transformers==4.40.0 \
+    accelerate==0.30.1 \
+    peft==0.11.1
 
 # Install other dependencies
 RUN pip3 install --no-cache-dir \
-    numpy \
     pillow \
     websockets \
-    lerobot \
     "networkx<3.2" \
     runpod
+
+# Install lerobot (if needed - comment out if not using)
+RUN pip3 install --no-cache-dir lerobot
 
 # Install remaining dependencies
 RUN pip3 install --no-cache-dir \
     albumentations==1.4.18 \
     av==12.3.0 \
-    einops==0.8.1 \
+    einops==0.7.0 \
     h5py==3.12.1 \
     kornia==0.7.4 \
     matplotlib==3.10.0 \
