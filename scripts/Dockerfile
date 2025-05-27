@@ -8,6 +8,12 @@ RUN apt-get update && apt-get install -y \
     wget \
     git-lfs \
     libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgthread-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all project files from parent directory
@@ -62,6 +68,13 @@ RUN git lfs install && \
     git clone --depth 1 https://huggingface.co/phospho-app/so100_strawberry_grape-915h3ndhhf /app/models
 
 EXPOSE 8765
+
+# Test that all imports work correctly
+RUN python3 -c "import cv2; print('✅ OpenCV works')" && \
+    python3 -c "import torch; print(f'✅ PyTorch works, CUDA available: {torch.cuda.is_available()}')" && \
+    python3 -c "from huggingface_hub.errors import HFValidationError, RepositoryNotFoundError; print('✅ Hugging Face imports work')" && \
+    python3 -c "import diffusers; import transformers; print('✅ Diffusers and Transformers work')" && \
+    python3 -c "from getting_started.examples.eval_gr00t_so100 import handle_client; print('✅ GR00T imports work')"
 
 # Verify files exist
 RUN ls -la /app/ && \
